@@ -1,0 +1,64 @@
+services:
+  nginx:
+    image: nginx:1.25.3
+    container_name: ${APP_NAME}-nginx
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.tpl.conf
+      - DOMAIN=${DOMAIN}
+    volumes:
+      - ./docker/nginx:/etc/nginx/templates
+      - ./docker/certs:/etc/certs
+      - ${SRC_PATH:-./src}:/var/www/html/wp-content
+    depends_on:
+      - wordpress
+    restart: always
+    networks:
+      - wp-docker-dev
+
+  mysql:
+    image: mysql:8.0.31
+    container_name: ${APP_NAME}-mysql
+
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: '${MYSQL_ROOT_PASSWORD}'
+      MYSQL_DATABASE: '${MYSQL_DATABASE}'
+      MYSQL_USER: '${MYSQL_USER}'
+      MYSQL_PASSWORD: '${MYSQL_PASSWORD}'
+    volumes:
+      - ./docker/db:/var/lib/mysql
+    networks:
+      - wp-docker-dev
+
+  wordpress:
+    depends_on:
+      - mysql
+    build:
+      context: ./docker/wordpress
+      dockerfile: wordpress.dockerfile
+    container_name: ${APP_NAME}-wordpress
+    volumes:
+      - ${SRC_PATH:-./src}:/var/www/html/wp-content
+    restart: always
+    networks:
+      - wp-docker-dev
+
+  phpmyadmin:
+    image: linuxserver/phpmyadmin
+    container_name: ${APP_NAME}-phpmyadmin
+    environment:
+      PMA_HOST: '${MYSQL_HOST}'
+      PMA_PORT: 3306
+      PMA_USER: '${MYSQL_USER}'
+      PMA_PASSWORD: '${MYSQL_PASSWORD}'
+    ports:
+      - '8080:80'
+    networks:
+      - wp-docker-dev
+
+networks:
+  wp-docker-dev:
+    driver: bridge
